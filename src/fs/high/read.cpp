@@ -15,6 +15,7 @@ bool read(Inodei i, uint64_t start, uint8_t* data, size_t sz) {
 	Blocki bi = inode->getBlock(rbi);
 	if(!bi) {
 		deviceLock.release();
+		delete inode;
 		return false;
 	}
 
@@ -35,12 +36,14 @@ bool read(Inodei i, uint64_t start, uint8_t* data, size_t sz) {
 		bi = inode->getBlock(rbi);
 		if(!bi) {
 			deviceLock.release();
+			delete inode;
 			return false;
 		}
 
 		block = readBlock(bi);
 		if(!block) {
 			deviceLock.release();
+			delete inode;
 			return false;
 		}
 
@@ -57,12 +60,14 @@ bool read(Inodei i, uint64_t start, uint8_t* data, size_t sz) {
 		bi = inode->getBlock(rbi);
 		if(!bi) {
 			deviceLock.release();
+			delete inode;
 			return false;
 		}
 
 		block = readBlock(bi);
 		if(!block) {
 			deviceLock.release();
+			delete inode;
 			return false;
 		}
 

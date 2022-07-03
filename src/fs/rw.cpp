@@ -2,14 +2,14 @@
 
 static std::pair<size_t, size_t> inode2sector(Inodei i) {
 	size_t sector = (i * sizeof(Inode)) / info.sectorSize;
-	sector += info.firstFreeSector;
+	sector += info.sb.firstInode;
 	size_t offset = i % (info.sectorSize / sizeof(Inode));
 	return {sector, offset};
 }
 
 static std::pair<size_t, size_t> block2sector(Blocki b) {
 	size_t sector = (b * BLOCK_SIZE) / info.sectorSize;
-	sector += info.firstFreeSector;
+	sector += info.sb.firstBlock;
 	size_t offset = b % (info.sectorSize / BLOCK_SIZE);
 	return {sector, offset};
 }

@@ -19,12 +19,14 @@ bool write(Inodei i, uint64_t start, uint8_t* data, size_t sz, bool append) {
 	Blocki bi = inode->getBlock(rbi, true);
 	if(!bi) {
 		deviceLock.release();
+		delete inode;
 		return false;
 	}
 
 	uint8_t* block = readBlock(bi);
 	if(!block) {
 		deviceLock.release();
+		delete inode;
 		return false;
 	}
 	size_t off = start % BLOCK_SIZE;
@@ -34,6 +36,7 @@ bool write(Inodei i, uint64_t start, uint8_t* data, size_t sz, bool append) {
 	if(!writeBlock(bi, block)) {
 		deviceLock.release();
 		delete [] block;
+		delete inode;
 		return false;
 	}
 	delete [] block;
@@ -44,12 +47,14 @@ bool write(Inodei i, uint64_t start, uint8_t* data, size_t sz, bool append) {
 		bi = inode->getBlock(rbi, true);
 		if(!bi) {
 			deviceLock.release();
+			delete inode;
 			return false;
 		}
 
 		block = readBlock(bi);
 		if(!block) {
 			deviceLock.release();
+			delete inode;
 			return false;
 		}
 
@@ -60,6 +65,7 @@ bool write(Inodei i, uint64_t start, uint8_t* data, size_t sz, bool append) {
 		if(!writeBlock(bi, block)) {
 			deviceLock.release();
 			delete [] block;
+			delete inode;
 			return false;
 		}
 
@@ -72,12 +78,14 @@ bool write(Inodei i, uint64_t start, uint8_t* data, size_t sz, bool append) {
 		bi = inode->getBlock(rbi, true);
 		if(!bi) {
 			deviceLock.release();
+			delete inode;
 			return false;
 		}
 
 		block = readBlock(bi);
 		if(!block) {
 			deviceLock.release();
+			delete inode;
 			return false;
 		}
 
@@ -85,6 +93,7 @@ bool write(Inodei i, uint64_t start, uint8_t* data, size_t sz, bool append) {
 		if(!writeBlock(bi, block)) {
 			deviceLock.release();
 			delete [] block;
+			delete inode;
 			return false;
 		}
 
