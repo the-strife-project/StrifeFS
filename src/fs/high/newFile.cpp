@@ -9,7 +9,6 @@ Inodei newFile(Inodei parent, std::string& name) {
 	Inode inode;
 
 	// ctime, mtime, and atime would be here
-	inode.links = 1; // Parent
 
 	if(!writeInode(ret, inode)) {
 		deviceLock.release();

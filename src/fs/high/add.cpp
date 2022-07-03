@@ -15,4 +15,6 @@ bool add(Inodei from, Inodei to, std::string& name) {
 	bool ret = append(from, aux, sz);
 	delete [] aux;
 	return ret;
+
+	// TODO: Increment links
 }

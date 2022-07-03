@@ -44,13 +44,67 @@ bool connect(std::PID client, std::SMID smid) {
 	return std::sm::connect(client, smid);
 }
 
-// list
-// read
-// write
+bool pubGetInode(std::PID client, Inodei i) {
+	setupLock.acquire();
+	if(!isSetup) {
+		setupLock.release();
+		return false;
+	}
+	setupLock.release();
+
+	uint8_t* data = std::sm::get(client);
+	if(!data)
+		return false;
+
+	deviceLock.acquire();
+	Inode* inode = readInode(i);
+	if(!inode) {
+		deviceLock.release();
+		return false;
+	}
+	deviceLock.release();
+
+	memcpy(data, inode, sizeof(Inode));
+	delete inode;
+	return true;
+}
+
+bool pubRead(std::PID client, Inodei i, uint64_t start, size_t size) {
+	setupLock.acquire();
+	if(!isSetup) {
+		setupLock.release();
+		return false;
+	}
+	setupLock.release();
+
+	uint8_t* data = std::sm::get(client);
+	if(!data)
+		return false;
+
+	return read(i, start, data, size);
+}
+
+bool pubWrite(std::PID client, Inodei i, uint64_t start, size_t size) {
+	setupLock.acquire();
+	if(!isSetup) {
+		setupLock.release();
+		return false;
+	}
+	setupLock.release();
+
+	uint8_t* data = std::sm::get(client);
+	if(!data)
+		return false;
+
+	return write(i, start, data, size);
+}
 
 void publish() {
 	std::exportProcedure((void*)setup, 3);
 	std::exportProcedure((void*)connect, 1);
+	std::exportProcedure((void*)pubGetInode, 1);
+	std::exportProcedure((void*)pubRead, 3);
+	std::exportProcedure((void*)pubWrite, 3);
 	std::enableRPC();
 	std::publish("StrifeFS");
 	std::halt();

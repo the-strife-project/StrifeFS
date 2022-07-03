@@ -28,17 +28,14 @@ bool format() {
 
 	// Finally, block section
 	info.sb.firstBlock = info.sb.firstInode + 1 + isz;
+
 	// That's it
+	info.sbLock.acquire();
+	info.flushSuperblock();
+	info.sbLock.release();
 
-
-
-	// Copy time. First, superblock
+	// Initialize bitmaps
 	deviceLock.acquire();
-
-	memcpy(info.buffer, &(info.sb), sizeof(Superblock));
-	if(!writeSector(info.firstFreeSector))
-		return false;
-	// Bitmaps
 	memset(info.buffer, 0, PAGE_SIZE);
 	for(size_t i=0; i<ibsz; ++i)
 		if(!writeSector(info.sb.inodeBitmap + i))
@@ -46,11 +43,33 @@ bool format() {
 	for(size_t i=0; i<bbsz; ++i)
 		if(!writeSector(info.sb.blockBitmap + i))
 			return false;
-
 	deviceLock.release();
 
 	// Allocate first inode and block so they're reserved
 	allocInode(); allocBlock();
 
-	return makeRoot();
+	// Make the root
+	if(!makeRoot())
+		return false;
+
+	deviceLock.acquire();
+	Inode* root = readInode(1);
+	if(!root) {
+		deviceLock.release();
+		return false;
+	}
+	deviceLock.release();
+
+	root->setACL(ACL_ALLOW, ACL_USER, SYSTEM_UID, ACL_RWX);
+
+	deviceLock.acquire();
+	if(!writeInode(1, *root)) {
+		deviceLock.release();
+		delete root;
+		return false;
+	}
+	deviceLock.release();
+
+	delete root;
+	return true;
 }
