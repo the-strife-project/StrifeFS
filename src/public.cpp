@@ -99,12 +99,46 @@ bool pubWrite(std::PID client, Inodei i, uint64_t start, size_t size) {
 	return write(i, start, data, size);
 }
 
+static Inodei makeStuff(std::PID client, Inodei parent, size_t namesz, bool isDir) {
+	setupLock.acquire();
+	if(!isSetup) {
+		setupLock.release();
+		return 0;
+	}
+	setupLock.release();
+
+	if(namesz >= PAGE_SIZE)
+		return 0;
+
+	uint8_t* data = std::sm::get(client);
+	if(!data)
+		return 0;
+	data[namesz] = 0;
+	std::string name((char*)data);
+
+	if(isDir)
+		return newDirectory(parent, name);
+	else
+		return newFile(parent, name);
+}
+
+Inodei pubMakeFile(std::PID client, Inodei parent, size_t namesz) {
+	return makeStuff(client, parent, namesz, false);
+}
+
+Inodei pubMakeDir(std::PID client, Inodei parent, size_t namesz) {
+	return makeStuff(client, parent, namesz, true);
+}
+
+
 void publish() {
 	std::exportProcedure((void*)setup, 3);
 	std::exportProcedure((void*)connect, 1);
 	std::exportProcedure((void*)pubGetInode, 1);
 	std::exportProcedure((void*)pubRead, 3);
 	std::exportProcedure((void*)pubWrite, 3);
+	std::exportProcedure((void*)pubMakeFile, 2);
+	std::exportProcedure((void*)pubMakeDir, 2);
 	std::enableRPC();
 	std::publish("StrifeFS");
 	std::halt();

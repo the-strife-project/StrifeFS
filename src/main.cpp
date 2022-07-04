@@ -4,8 +4,6 @@
 Info info;
 
 extern "C" void _start() {
-	
-
 	publish();
 	std::halt();
 }
