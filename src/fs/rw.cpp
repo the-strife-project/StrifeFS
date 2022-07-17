@@ -1,4 +1,5 @@
 #include "fs.hpp"
+#include <shared_memory>
 
 static std::pair<size_t, size_t> inode2sector(Inodei i) {
 	size_t sector = (i * sizeof(Inode)) / info.sectorSize;
@@ -16,43 +17,74 @@ static std::pair<size_t, size_t> block2sector(Blocki b) {
 
 Inode* readInode(Inodei i) {
 	auto sector = inode2sector(i);
-	if(!readSector(sector.f))
-		return nullptr;
 
-	Inode* orig = (Inode*)(info.buffer + sector.s * sizeof(Inode));
-	Inode* ret = new Inode(*orig);
+	std::SMID smid = std::smMake();
+	uint8_t* buffer = (uint8_t*)std::smMap(smid);
+	std::smAllow(smid, info.block);
+
+	Inode* ret = nullptr;
+	if(readSectors(sector.f, smid, 1)) {
+		Inode* orig = (Inode*)(buffer + sector.s * sizeof(Inode));
+		ret = new Inode(*orig);
+	}
+
+	std::munmap(buffer);
+	std::smDrop(smid);
 	return ret;
 }
 
 bool writeInode(Inodei i, const Inode& copy) {
 	auto sector = inode2sector(i);
-	if(!readSector(sector.f))
-		return false;
 
-	Inode* orig = (Inode*)(info.buffer + sector.s * sizeof(Inode));
-	*orig = copy;
+	std::SMID smid = std::smMake();
+	uint8_t* buffer = (uint8_t*)std::smMap(smid);
+	std::smAllow(smid, info.block);
 
-	return writeSector(sector.f);
+	bool ret = false;
+	if(readSectors(sector.f, smid, 1)) {
+		Inode* orig = (Inode*)(buffer + sector.s * sizeof(Inode));
+		*orig = copy;
+		ret = writeSectors(sector.f, smid, 1);
+	}
+
+	std::munmap(buffer);
+	std::smDrop(smid);
+	return ret;
 }
 
 uint8_t* readBlock(Blocki b) {
 	auto sector = block2sector(b);
-	if(!readSector(sector.f))
-		return nullptr;
 
-	uint8_t* orig = info.buffer + sector.s * BLOCK_SIZE;
-	uint8_t* ret = new uint8_t[BLOCK_SIZE];
-	memcpy(ret, orig, BLOCK_SIZE);
+	std::SMID smid = std::smMake();
+	uint8_t* buffer = (uint8_t*)std::smMap(smid);
+	std::smAllow(smid, info.block);
+
+	uint8_t* ret = nullptr;
+	if(readSectors(sector.f, smid, 1)) {
+		ret = new uint8_t[BLOCK_SIZE];
+		memcpy(ret, buffer + sector.s * BLOCK_SIZE, BLOCK_SIZE);
+	}
+
+	std::munmap(buffer);
+	std::smDrop(smid);
 	return ret;
 }
 
 bool writeBlock(Blocki b, uint8_t* data) {
 	auto sector = block2sector(b);
-	if(!readSector(sector.f))
-		return false;
 
-	uint8_t* orig = info.buffer + sector.s * BLOCK_SIZE;
-	memcpy(orig, data, BLOCK_SIZE);
+	std::SMID smid = std::smMake();
+	uint8_t* buffer = (uint8_t*)std::smMap(smid);
+	std::smAllow(smid, info.block);
 
-	return writeSector(sector.f);
+	bool ret = false;
+	if(readSectors(sector.f, smid, 1)) {
+		uint8_t* orig = buffer + sector.s * BLOCK_SIZE;
+		memcpy(orig, data, BLOCK_SIZE);
+		ret = writeSectors(sector.f, smid, 1);
+	}
+
+	std::munmap(buffer);
+	std::smDrop(smid);
+	return ret;
 }

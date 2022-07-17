@@ -1,6 +1,7 @@
 #include "fs.hpp"
 #include "structures.hpp"
 #include <cstdio>
+#include <shared_memory>
 
 bool format() {
 	info.sb = Superblock();
@@ -36,14 +37,22 @@ bool format() {
 
 	// Initialize bitmaps
 	deviceLock.acquire();
-	memset(info.buffer, 0, PAGE_SIZE);
-	for(size_t i=0; i<ibsz; ++i)
-		if(!writeSector(info.sb.inodeBitmap + i))
-			return false;
-	for(size_t i=0; i<bbsz; ++i)
-		if(!writeSector(info.sb.blockBitmap + i))
-			return false;
+	std::SMID smid = std::smMake();
+	uint8_t* buffer = (uint8_t*)std::smMap(smid);
+	std::smAllow(smid, info.block);
+	memset(buffer, 0, PAGE_SIZE);
+	bool ok = true;
+	for(size_t i=0; i<ibsz && ok; ++i)
+		if(!writeSectors(info.sb.inodeBitmap + i, smid, 1))
+			ok = false;
+	for(size_t i=0; i<bbsz && ok; ++i)
+		if(!writeSectors(info.sb.blockBitmap + i, smid, 1))
+			ok = false;
 	deviceLock.release();
+	std::munmap(buffer);
+	std::smDrop(smid);
+	if(!ok)
+		return false;
 
 	// Allocate first inode and block so they're reserved
 	allocInode(); allocBlock();

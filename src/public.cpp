@@ -40,11 +40,7 @@ bool setup(std::PID client, uint64_t uuida, uint64_t uuidb, bool mustFormat) {
 	return true;
 }
 
-bool connect(std::PID client, std::SMID smid) {
-	return std::sm::connect(client, smid);
-}
-
-bool pubGetInode(std::PID client, Inodei i) {
+bool pubGetInode(std::PID client, std::SMID smid, Inodei i) {
 	setupLock.acquire();
 	if(!isSetup) {
 		setupLock.release();
@@ -52,9 +48,11 @@ bool pubGetInode(std::PID client, Inodei i) {
 	}
 	setupLock.release();
 
-	uint8_t* data = std::sm::get(client);
-	if(!data)
+	auto link = std::sm::link(client, smid);
+	size_t npages = link.s;
+	if(!npages)
 		return false;
+	uint8_t* buffer = link.f;
 
 	deviceLock.acquire();
 	Inode* inode = readInode(i);
@@ -64,12 +62,14 @@ bool pubGetInode(std::PID client, Inodei i) {
 	}
 	deviceLock.release();
 
-	memcpy(data, inode, sizeof(Inode));
+	memcpy(buffer, inode, sizeof(Inode));
 	delete inode;
+
+	std::sm::unlink(smid);
 	return true;
 }
 
-bool pubRead(std::PID client, Inodei i, uint64_t start, size_t size) {
+bool pubRead(std::PID client, std::SMID smid, Inodei i, uint64_t start, size_t size) {
 	setupLock.acquire();
 	if(!isSetup) {
 		setupLock.release();
@@ -77,14 +77,18 @@ bool pubRead(std::PID client, Inodei i, uint64_t start, size_t size) {
 	}
 	setupLock.release();
 
-	uint8_t* data = std::sm::get(client);
-	if(!data)
+	auto link = std::sm::link(client, smid);
+	size_t npages = link.s;
+	if(!npages)
 		return false;
+	uint8_t* buffer = link.f;
 
-	return read(i, start, data, size);
+	bool ret = read(i, start, buffer, size);
+	std::sm::unlink(smid);
+	return ret;
 }
 
-bool pubWrite(std::PID client, Inodei i, uint64_t start, size_t size) {
+bool pubWrite(std::PID client, std::SMID smid, Inodei i, uint64_t start, size_t size) {
 	setupLock.acquire();
 	if(!isSetup) {
 		setupLock.release();
@@ -92,14 +96,18 @@ bool pubWrite(std::PID client, Inodei i, uint64_t start, size_t size) {
 	}
 	setupLock.release();
 
-	uint8_t* data = std::sm::get(client);
-	if(!data)
+	auto link = std::sm::link(client, smid);
+	size_t npages = link.s;
+	if(!npages)
 		return false;
+	uint8_t* buffer = link.f;
 
-	return write(i, start, data, size);
+	bool ret = write(i, start, buffer, size);
+	std::sm::unlink(smid);
+	return ret;
 }
 
-static Inodei makeStuff(std::PID client, Inodei parent, size_t namesz, bool isDir) {
+static Inodei makeStuff(std::PID client, std::SMID smid, Inodei parent, size_t namesz, bool isDir) {
 	setupLock.acquire();
 	if(!isSetup) {
 		setupLock.release();
@@ -110,35 +118,40 @@ static Inodei makeStuff(std::PID client, Inodei parent, size_t namesz, bool isDi
 	if(namesz >= PAGE_SIZE)
 		return 0;
 
-	uint8_t* data = std::sm::get(client);
-	if(!data)
-		return 0;
-	data[namesz] = 0;
-	std::string name((char*)data);
+	auto link = std::sm::link(client, smid);
+	size_t npages = link.s;
+	if(!npages)
+		return false;
+	uint8_t* buffer = link.f;
+	buffer[namesz] = 0;
+	std::string name((char*)buffer);
 
+	Inodei ret;
 	if(isDir)
-		return newDirectory(parent, name);
+		ret = newDirectory(parent, name);
 	else
-		return newFile(parent, name);
+		ret = newFile(parent, name);
+
+	std::sm::unlink(smid);
+	return ret;
 }
 
-Inodei pubMakeFile(std::PID client, Inodei parent, size_t namesz) {
-	return makeStuff(client, parent, namesz, false);
+Inodei pubMakeFile(std::PID client, std::SMID smid, Inodei parent, size_t namesz) {
+	return makeStuff(client, smid, parent, namesz, false);
 }
 
-Inodei pubMakeDir(std::PID client, Inodei parent, size_t namesz) {
-	return makeStuff(client, parent, namesz, true);
+Inodei pubMakeDir(std::PID client, std::SMID smid, Inodei parent, size_t namesz) {
+	return makeStuff(client, smid, parent, namesz, true);
 }
 
 
 void publish() {
 	std::exportProcedure((void*)setup, 3);
-	std::exportProcedure((void*)connect, 1);
-	std::exportProcedure((void*)pubGetInode, 1);
-	std::exportProcedure((void*)pubRead, 3);
-	std::exportProcedure((void*)pubWrite, 3);
-	std::exportProcedure((void*)pubMakeFile, 2);
-	std::exportProcedure((void*)pubMakeDir, 2);
+	std::exportProcedure((void*)pubGetInode, 2);
+	std::exportProcedure((void*)pubRead, 4);
+	std::exportProcedure((void*)pubWrite, 4);
+	std::exportProcedure((void*)pubMakeFile, 3);
+	std::exportProcedure((void*)pubMakeDir, 3);
 	std::enableRPC();
 	std::publish("StrifeFS");
 	std::halt();

@@ -1,49 +1,66 @@
 #include "fs.hpp"
 #include <bitmap>
 #include <cstdio>
+#include <shared_memory>
 
 static size_t _allocBitmap(LBA begin, LBA end) {
 	LBA lba = begin;
 	size_t bmSize = info.sectorSize * W_CHAR;
 
-	while(lba < end) {
-		if(!readSector(lba))
-			return 0;
+	std::SMID smid = std::smMake();
+	uint8_t* buffer = (uint8_t*)std::smMap(smid);
+	std::smAllow(smid, info.block);
 
-		std::bitmap bm(bmSize, info.buffer);
-		size_t ret = bm.getFirstZeroAndFlip();
-		if(ret == bmSize)
+	size_t ret = 0;
+	while(lba < end) {
+		if(!readSectors(lba, smid, 1))
+			break;
+
+		std::bitmap bm(bmSize, buffer);
+		size_t nth = bm.getFirstZeroAndFlip();
+		if(nth == bmSize)
 			continue; // Tough luck
 
 		// Nice
-		if(!writeSector(lba))
-			return 0;
+		if(writeSectors(lba, smid, 1)) {
+			LBA sector = lba - begin;
+			nth += sector * bmSize;
+			ret = nth;
+		}
 
-		LBA sector = lba - begin;
-		ret += sector * bmSize;
-
-		return ret;
+		break;
 	}
 
-	// None free!
-	return 0;
+	std::munmap(buffer);
+	std::smDrop(smid);
+	return ret;
 }
 
-static size_t _freeBitmap(LBA begin, size_t idx) {
+static bool _freeBitmap(LBA begin, size_t idx) {
+	std::SMID smid = std::smMake();
+	uint8_t* buffer = (uint8_t*)std::smMap(smid);
+	std::smAllow(smid, info.block);
+
 	size_t bmSize = info.sectorSize * W_CHAR;
 	LBA lba = begin + idx / bmSize;
-	if(!readSector(lba))
+	if(!readSectors(lba, smid, 1)) {
+		std::munmap(buffer);
+		std::smDrop(smid);
 		return false;
+	}
 
 	Inodei relidx = idx % bmSize;
-	std::bitmap bm(bmSize, info.buffer);
+	std::bitmap bm(bmSize, buffer);
 	if(!bm.get(relidx)) {
 		std::printf("[StrifeFS] Tried to free a free item\n");
 		return false;
 	}
 
 	bm.set(relidx, false);
-	return writeSector(lba);
+	bool ret = writeSectors(lba, smid, 1);
+	std::munmap(buffer);
+	std::smDrop(smid);
+	return ret;
 }
 
 

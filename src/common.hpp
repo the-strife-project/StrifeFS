@@ -10,7 +10,6 @@
 struct Info {
 	std::UUID uuid;
 	std::PID block = 0;
-	uint8_t* buffer = nullptr;
 
 	LBA firstFreeSector;
 	size_t sectorSize;
@@ -31,7 +30,7 @@ void publish();
 // block service related
 bool peerBlockDevice();
 extern std::mutex deviceLock;
-bool readSector(LBA lba);
-bool writeSector(LBA lba);
+bool readSectors(LBA lba, std::SMID smid, size_t n);
+bool writeSectors(LBA lba, std::SMID smid, size_t n);
 
 #endif

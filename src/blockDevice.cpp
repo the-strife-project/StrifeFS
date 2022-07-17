@@ -10,11 +10,12 @@ bool peerBlockDevice() {
 		if(!info.block)
 			return false;
 
-		std::SMID smid = std::smMake();
-		info.buffer = (uint8_t*)std::smMap(smid);
-		std::smAllow(smid, info.block);
-		bool result = std::rpc(info.block, std::block::CONNECT, smid);
-		if(!result)
+		bool ret = std::rpc(info.block,
+							std::block::SELECT,
+							info.uuid.a,
+							info.uuid.b);
+
+		if(!ret)
 			return false;
 	}
 
@@ -23,7 +24,7 @@ bool peerBlockDevice() {
 
 std::mutex deviceLock;
 
-bool readSector(LBA lba) {
+bool readSectors(LBA lba, std::SMID smid, size_t n) {
 	if(!deviceLock.isAcquired()) {
 		std::printf("[StrifeFS] readSector: deviceLock not acquired!\n");
 		std::exit(9);
@@ -31,13 +32,12 @@ bool readSector(LBA lba) {
 
 	return std::rpc(info.block,
 					std::block::READ,
-					info.uuid.a,
-					info.uuid.b,
+					smid,
 					lba * info.sectorSize,
-					info.sectorSize);
+					n * info.sectorSize);
 }
 
-bool writeSector(LBA lba) {
+bool writeSectors(LBA lba, std::SMID smid, size_t n) {
 	if(!deviceLock.isAcquired()) {
 		std::printf("[StrifeFS] writeSector: deviceLock not acquired!\n");
 		std::exit(9);
@@ -45,10 +45,9 @@ bool writeSector(LBA lba) {
 
 	return std::rpc(info.block,
 					std::block::WRITE,
-					info.uuid.a,
-					info.uuid.b,
+					smid,
 					lba * info.sectorSize,
-					info.sectorSize);
+					n * info.sectorSize);
 }
 
 bool Info::flushSuperblock(bool dontLock) {
@@ -62,8 +61,15 @@ bool Info::flushSuperblock(bool dontLock) {
 	}
 
 	if(!dontLock) deviceLock.acquire();
+	std::SMID smid = std::smMake();
+	uint8_t* buffer = (uint8_t*)std::smMap(smid);
+	std::smAllow(smid, info.block);
+
 	memcpy(buffer, &sb, sizeof(Superblock));
-	bool ret = writeSector(firstFreeSector);
+	bool ret = writeSectors(firstFreeSector, smid, 1);
+
+	std::munmap(buffer);
+	std::smDrop(smid);
 	if(!dontLock) deviceLock.release();
 
 	return ret;
