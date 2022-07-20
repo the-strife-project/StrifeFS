@@ -4,11 +4,13 @@
 #include <mutex>
 #include "fs/structures.hpp"
 #include "fs/fs.hpp"
+#include <registry>
 
 static std::mutex setupLock;
 static bool isSetup = false;
 bool setup(std::PID client, uint64_t uuida, uint64_t uuidb, bool mustFormat) {
-	IGNORE(client);
+	if(!std::registry::has(client, "STRIFEFS_SETUP"))
+		return false;
 
 	setupLock.acquire();
 	if(isSetup) {
@@ -41,6 +43,9 @@ bool setup(std::PID client, uint64_t uuida, uint64_t uuidb, bool mustFormat) {
 }
 
 bool pubGetInode(std::PID client, std::SMID smid, Inodei i) {
+	if(!std::registry::has(client, "STRIFEFS_READ"))
+		return false;
+
 	setupLock.acquire();
 	if(!isSetup) {
 		setupLock.release();
@@ -70,6 +75,9 @@ bool pubGetInode(std::PID client, std::SMID smid, Inodei i) {
 }
 
 bool pubRead(std::PID client, std::SMID smid, Inodei i, uint64_t start, size_t size) {
+	if(!std::registry::has(client, "STRIFEFS_READ"))
+		return false;
+
 	setupLock.acquire();
 	if(!isSetup) {
 		setupLock.release();
@@ -89,6 +97,8 @@ bool pubRead(std::PID client, std::SMID smid, Inodei i, uint64_t start, size_t s
 }
 
 bool pubWrite(std::PID client, std::SMID smid, Inodei i, uint64_t start, size_t size) {
+	if(!std::registry::has(client, "STRIFEFS_WRITE"))
+	   return false;
 	setupLock.acquire();
 	if(!isSetup) {
 		setupLock.release();
@@ -137,10 +147,16 @@ static Inodei makeStuff(std::PID client, std::SMID smid, Inodei parent, size_t n
 }
 
 Inodei pubMakeFile(std::PID client, std::SMID smid, Inodei parent, size_t namesz) {
+	if(!std::registry::has(client, "STRIFEFS_WRITE"))
+		return 0;
+
 	return makeStuff(client, smid, parent, namesz, false);
 }
 
 Inodei pubMakeDir(std::PID client, std::SMID smid, Inodei parent, size_t namesz) {
+	if(!std::registry::has(client, "STRIFEFS_WRITE"))
+		return 0;
+
 	return makeStuff(client, smid, parent, namesz, true);
 }
 
