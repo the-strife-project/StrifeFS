@@ -117,7 +117,7 @@ bool pubWrite(std::PID client, std::SMID smid, Inodei i, uint64_t start, size_t 
 	return ret;
 }
 
-static Inodei makeStuff(std::PID client, std::SMID smid, Inodei parent, size_t namesz, bool isDir) {
+static Inodei makeStuff(std::PID client, std::SMID smid, Inodei parent, bool isDir) {
 	setupLock.acquire();
 	if(!isSetup) {
 		setupLock.release();
@@ -125,15 +125,12 @@ static Inodei makeStuff(std::PID client, std::SMID smid, Inodei parent, size_t n
 	}
 	setupLock.release();
 
-	if(namesz >= PAGE_SIZE)
-		return 0;
-
 	auto link = std::sm::link(client, smid);
 	size_t npages = link.s;
 	if(!npages)
 		return false;
 	uint8_t* buffer = link.f;
-	buffer[namesz] = 0;
+	buffer[PAGE_SIZE - 1] = 0;
 	std::string name((char*)buffer);
 
 	Inodei ret;
@@ -146,19 +143,20 @@ static Inodei makeStuff(std::PID client, std::SMID smid, Inodei parent, size_t n
 	return ret;
 }
 
-Inodei pubMakeFile(std::PID client, std::SMID smid, Inodei parent, size_t namesz) {
+Inodei pubMakeDir(std::PID client, std::SMID smid, Inodei parent) {
 	if(!std::registry::has(client, "STRIFEFS_WRITE"))
 		return 0;
 
-	return makeStuff(client, smid, parent, namesz, false);
+	return makeStuff(client, smid, parent, true);
 }
 
-Inodei pubMakeDir(std::PID client, std::SMID smid, Inodei parent, size_t namesz) {
+Inodei pubMakeFile(std::PID client, std::SMID smid, Inodei parent) {
 	if(!std::registry::has(client, "STRIFEFS_WRITE"))
 		return 0;
 
-	return makeStuff(client, smid, parent, namesz, true);
+	return makeStuff(client, smid, parent, false);
 }
+
 
 
 void publish() {
@@ -166,8 +164,8 @@ void publish() {
 	std::exportProcedure((void*)pubGetInode, 2);
 	std::exportProcedure((void*)pubRead, 4);
 	std::exportProcedure((void*)pubWrite, 4);
-	std::exportProcedure((void*)pubMakeFile, 3);
-	std::exportProcedure((void*)pubMakeDir, 3);
+	std::exportProcedure((void*)pubMakeDir, 2);
+	std::exportProcedure((void*)pubMakeFile, 2);
 	std::enableRPC();
 	std::publish("StrifeFS");
 	std::halt();
