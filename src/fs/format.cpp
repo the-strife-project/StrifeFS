@@ -69,7 +69,12 @@ bool format() {
 	}
 	deviceLock.release();
 
-	root->setACL(ACL_ALLOW, ACL_USER, SYSTEM_UID, ACL_RW);
+	std::ACLEntry acl;
+	acl.isUser = true;
+	acl.allow = true;
+	acl.read = true;
+	acl.write = true;
+	root->addACL(SYSTEM_UID, acl);
 
 	deviceLock.acquire();
 	if(!writeInode(1, *root)) {

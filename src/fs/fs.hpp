@@ -36,10 +36,7 @@ inline bool makeRoot() {
 	return newDirectory(0, empty);
 }
 
-#define ACL_ALLOW true
-#define ACL_USER true
 #define SYSTEM_UID 1
-#define ACL_RW (0b11)
 
 
 #endif

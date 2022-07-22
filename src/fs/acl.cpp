@@ -1,6 +1,6 @@
 #include "fs.hpp"
 
-bool Inode::setACL(bool allow, bool isUser, size_t id, size_t perms) {
+bool Inode::addACL(size_t id, std::ACLEntry ent) {
 	if(!acl) {
 		acl = allocInode();
 		if(!acl)
@@ -25,11 +25,8 @@ bool Inode::setACL(bool allow, bool isUser, size_t id, size_t perms) {
 	}
 
 	ACLEntry entry;
-	entry.e.allow = allow;
-	entry.e.isUser = isUser;
-	entry.e.read = (perms & 0b01) != 0;
-	entry.e.write = (perms & 0b10) != 0;
 	entry.id = id;
+	entry.e = ent;
 
 	return append(acl, (uint8_t*)&entry, sizeof(ACLEntry));
 }

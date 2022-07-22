@@ -51,7 +51,7 @@ struct Inode {
 
 	// Methods
 	Blocki getBlock(size_t seq, bool shouldAlloc=false);
-	bool setACL(bool allow, bool isUser, size_t id, size_t perms);
+	bool addACL(size_t id, std::ACLEntry ent);
 } __attribute__((packed));
 
 struct ACLEntry {

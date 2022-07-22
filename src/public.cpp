@@ -157,6 +157,33 @@ Inodei pubMakeFile(std::PID client, std::SMID smid, Inodei parent) {
 	return makeStuff(client, smid, parent, false);
 }
 
+bool pubAddACL(std::PID client, Inodei i, size_t uid, size_t rawentry) {
+	if(!std::registry::has(client, "STRIFEFS_WRITE"))
+		return 0;
+
+	deviceLock.acquire();
+	Inode* inode = readInode(i);
+	if(!inode) {
+		deviceLock.release();
+		return false;
+	}
+	deviceLock.release();
+
+	std::ACLEntry entry;
+	entry.raw = rawentry;
+	bool ret = inode->addACL(uid, entry);
+
+	deviceLock.acquire();
+	if(!writeInode(i, *inode)) {
+		deviceLock.release();
+		delete inode;
+		return false;
+	}
+	deviceLock.release();
+
+	return ret;
+}
+
 
 
 void publish() {
@@ -166,6 +193,7 @@ void publish() {
 	std::exportProcedure((void*)pubWrite, 4);
 	std::exportProcedure((void*)pubMakeDir, 2);
 	std::exportProcedure((void*)pubMakeFile, 2);
+	std::exportProcedure((void*)pubAddACL, 3);
 	std::enableRPC();
 	std::publish("StrifeFS");
 	std::halt();
