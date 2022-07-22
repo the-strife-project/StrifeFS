@@ -39,7 +39,7 @@ inline bool makeRoot() {
 #define ACL_ALLOW true
 #define ACL_USER true
 #define SYSTEM_UID 1
-#define ACL_RWX 0b111
+#define ACL_RW (0b11)
 
 
 #endif

@@ -69,7 +69,7 @@ bool format() {
 	}
 	deviceLock.release();
 
-	root->setACL(ACL_ALLOW, ACL_USER, SYSTEM_UID, ACL_RWX);
+	root->setACL(ACL_ALLOW, ACL_USER, SYSTEM_UID, ACL_RW);
 
 	deviceLock.acquire();
 	if(!writeInode(1, *root)) {

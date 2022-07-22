@@ -1,5 +1,4 @@
 #include "fs.hpp"
-#include <cstdio>
 
 bool Inode::setACL(bool allow, bool isUser, size_t id, size_t perms) {
 	if(!acl) {
@@ -26,11 +25,10 @@ bool Inode::setACL(bool allow, bool isUser, size_t id, size_t perms) {
 	}
 
 	ACLEntry entry;
-	entry.allow = allow;
-	entry.isUser = isUser;
-	entry.read = perms & 0b001;
-	entry.write = perms & 0b010;
-	entry.execute = perms & 0b100;
+	entry.e.allow = allow;
+	entry.e.isUser = isUser;
+	entry.e.read = (perms & 0b01) != 0;
+	entry.e.write = (perms & 0b10) != 0;
 	entry.id = id;
 
 	return append(acl, (uint8_t*)&entry, sizeof(ACLEntry));
